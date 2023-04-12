@@ -1,0 +1,218 @@
+---
+title: "DSA2101_Proj"
+author: "Emily"
+date: "2023-04-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE, message = FALSE, warning = FALSE, 
+                      fig.align = "center",  out.width = "80%")
+library(tidyverse)
+library(readxl)
+library(stringr)
+library(lubridate)
+
+```
+
+## reading in data
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load('2021-09-14')
+billboard <- tuesdata$billboard
+audio_features <- tuesdata$audio_features
+```
+
+# Clean Audio Features
+
+```{r}
+audio_clean <- audio_features %>%
+  mutate(song_id = str_to_lower(song_id))
+```
+
+# Clean Billboard and join data
+```{r}
+#helper functions
+remove_casing <- function(x){return(substr(x, 2, nchar(x)-1))}
+
+clean_performer <- function(x){
+  is_performer_dirty <- function(y){return(str_detect(y, "\\($"))}
+  if (is.na(x)){
+    return(x)
+  }else if(is_performer_dirty(x)){
+    return(substr(x, 1, nchar(x)-1))
+  }else{
+    return(x)
+  }}
+clean_featured <- function(x){
+  is_featured_dirty <- function(y){return(str_detect(y, "\\)$"))}
+  if (is.na(x)){
+    return(x)
+  }else if(is_featured_dirty(x)){
+    return(substr(x, 1, nchar(x)-1))
+  }else{
+    return(x)
+  }}
+
+# normalise duration
+normalise_ms <- function(vector) {
+  min_m = min(vector, na.rm = TRUE)
+  max_m = max(vector, na.rm = TRUE)
+  vector_norm = ifelse(!is.na(vector), (vector-min_m)/(max_m-min_m), NA)
+  return(vector_norm)
+}
+
+# clean data
+merged <- billboard %>%
+  mutate(song_id = str_to_lower(song_id)) %>%
+  left_join(audio_clean, by = "song_id", suffix = c("_billboard", "_audio")) %>%
+  select(-c(url,performer_audio, spotify_track_id, song_audio, spotify_track_preview_url)) %>%
+  mutate_at(vars(performer_billboard), str_to_lower) %>%
+  
+  # split the genres
+  mutate_at(vars(spotify_genre), remove_casing) %>%         
+  mutate(spotify_genre = strsplit(as.character(spotify_genre), ",")) %>%  
+  unnest(spotify_genre) %>%                                               
+  mutate_at(vars(spotify_genre), str_trim) %>%
+  
+  # separate main performer from featured performers
+  separate(performer_billboard, into = c("performer", "featured"), sep = "featuring|starring") %>%
+  mutate_at(vars(performer,featured), str_trim) %>%
+  
+  # trim away the brackets
+  mutate(performer = str_trim(as.character(lapply(performer, clean_performer))),
+         featured = str_trim(as.character(lapply(featured, clean_featured))) ) %>%
+  
+  # add features: all_time_peak and duration_mins (normalised)
+  group_by(song_id) %>%
+  mutate(all_time_peak = min(peak_position, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate_at(vars(week_id), mdy) %>%
+  mutate(year = year(week_id),
+         duration_mins = normalise_ms(spotify_track_duration_ms))
+```
+
+
+## Butterfly plot FUNCTION 
+
+```{r}
+# takes in data with the newly merged variables and creates summary
+create_sum <- function(data) {
+  new <- data %>%
+    select(-c(spotify_genre)) %>%
+    distinct() %>%
+    summarise(danceability = mean(danceability, na.rm = TRUE),
+            energy = mean(energy, na.rm = TRUE),
+            speechiness = mean(speechiness, na.rm = TRUE),
+            acousticness = mean(acousticness, na.rm = TRUE),
+            instrumentalness = mean(instrumentalness, na.rm = TRUE),
+            liveness = mean(liveness, na.rm = TRUE),
+            valence = mean(valence, na.rm = TRUE),
+            explicit = sum(spotify_track_explicit, na.rm = TRUE)/n(),
+            loudness = mean(ifelse(!is.na(loudness), 10^(loudness/10), NA), na.rm = TRUE),
+            mode = mean(mode, na.rm = TRUE),
+            duration = mean(duration_mins, na.rm = TRUE)
+    )
+  return(new)
+}
+
+## takes in TWO summarised data and their names. Transposes data then row binds
+create_butterfly_data <- function(right, left, right_name, left_name) {
+  right_t <- right %>%
+    gather(key="features", value="value" ) %>%
+    mutate(type = right_name) %>%
+    arrange(desc(value))
+  
+  left_t <- left %>%
+    gather(key="features", value="value" ) %>%
+    mutate(type = left_name,
+           value = -1*value) %>%
+    arrange(desc(value))
+
+  butterfly_data <- rbind(right_t, left_t)
+  
+  return(butterfly_data)
+}
+```
+
+## Butterfly Plot for before and after 1970 
+
+```{r}
+before_1970 <- merged %>%
+  filter(year <= 1970)
+  
+after_1970 <- merged %>%
+  filter(year > 1970)
+```
+
+## ggplot     
+
+```{r}
+butterfly_data3 <- create_butterfly_data(create_sum(after_1970), create_sum(before_1970), "after_1970", "before_1970")
+
+features_by_desc_values <- butterfly_data3 %>% filter(type == "after_1970") %>%
+  arrange(value) %>% pull(features)
+ggplot(butterfly_data3) + 
+    geom_bar(aes(x = factor(features, level = features_by_desc_values) , y = value, fill = type), stat = 'identity') + 
+    geom_text(data = subset(butterfly_data3, type == "after_1970") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = -0.3) +
+    geom_text(data = subset(butterfly_data3, type == "before_1970") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = 1.2) +
+    coord_flip(ylim = c(-1,1)) +
+    scale_y_continuous(breaks = seq(-1,1,0.2)) +
+    theme_classic() +
+  labs(y = "value", x = "song characteristics", title = "Comparing Song Characteristics from before and after 1970")
+    
+```
+
+## Average absolute change of song rankings each month
+
+```{r}
+# simplify merged dataset to select only necessary distinct rows
+unique_songs <- merged %>%
+  filter(year %in% c(2011:2020)) %>%  # can change this filter 
+  select(c(year, week_id, song_id, week_position, peak_position)) %>%
+  mutate(month = month(week_id, label = TRUE, abbr = TRUE), week = day(week_id)) %>%
+  distinct() 
+```
+
+```{r}
+ranking_change <- unique_songs %>%
+  group_by(month) %>%
+  group_by(song_id) %>%
+  # for visual purposes
+  arrange(week_id) %>%
+  arrange(month, song_id) %>%
+  # lag the week_position
+  mutate(prev_week_pos = lag(week_position)) %>%
+  na.omit() %>% # effectively removes the first row of all unique song_ids per month
+  ungroup(month, song_id) %>%
+  mutate(diff = abs(prev_week_pos-week_position)) %>%
+  group_by(month) %>%
+  summarise(abs_change = mean(sum(diff)/length(unique(song_id)), na.rm = TRUE))
+``` 
+
+```{r}
+drop_out <- unique_songs %>% # data frame that finds out the number of songs that stay in the top 100 billboards for less than 4 weeks
+  group_by(month, song_id) %>%
+  summarise(count = n()) %>%
+  filter(count < 4) %>%
+  group_by(month) %>%
+  summarise(count_drop_out = n()) %>%
+  full_join(ranking_change)
+```
+
+```{r}
+unique_songs_df <- unique_songs %>%
+  group_by(month) %>%
+  summarise(count_total = n()) %>%
+  full_join(drop_out) %>%
+  mutate(proportion_drop_out = 100*count_drop_out/count_total)
+```
+
+
+```{r}
+ggplot(unique_songs_df) +
+  geom_point(aes(x = month, y = abs_change, size = proportion_drop_out, color = count_total)) +
+  scale_color_continuous(trans = "reverse") +
+  theme_minimal() +
+  labs(y = "Average absolute change of song rankings", x = "Month", title = "Average absolute change of song rankings each Month", color = "Total number of unique songs", size = "Songs that did not stay in the top 100 for > 3 weeks (%)")
+```
