@@ -126,7 +126,7 @@ create_butterfly_data <- function(right, left, right_name, left_name) {
   left_t <- left %>%
     gather(key="features", value="value" ) %>%
     mutate(type = left_name,
-           value = -1*value) %>%
+           value = - 1*value) %>%
     arrange(desc(value))
 
   butterfly_data <- rbind(right_t, left_t)
@@ -135,31 +135,32 @@ create_butterfly_data <- function(right, left, right_name, left_name) {
 }
 ```
 
-## Butterfly Plot for before and after 1970 
+## Butterfly Plot for before and after 1991
 
 ```{r}
 before_1970 <- merged %>%
-  filter(year <= 1970)
+  filter(year <= 1991)
   
 after_1970 <- merged %>%
-  filter(year > 1970)
+  filter(year > 1991)
 ```
 
 ## ggplot     
 
 ```{r}
-butterfly_data3 <- create_butterfly_data(create_sum(after_1970), create_sum(before_1970), "after_1970", "before_1970")
+butterfly_data3 <- create_butterfly_data(create_sum(after_1970), create_sum(before_1970), "after_1991", "before_1991")
 
-features_by_desc_values <- butterfly_data3 %>% filter(type == "after_1970") %>%
+features_by_desc_values <- butterfly_data3 %>% filter(type == "after_1991") %>%
   arrange(value) %>% pull(features)
 ggplot(butterfly_data3) + 
-    geom_bar(aes(x = factor(features, level = features_by_desc_values) , y = value, fill = type), stat = 'identity') + 
-    geom_text(data = subset(butterfly_data3, type == "after_1970") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = -0.3) +
-    geom_text(data = subset(butterfly_data3, type == "before_1970") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = 1.2) +
+    geom_bar(aes(x = factor(features, level = features_by_desc_values) , y = value, fill = type), stat = 'identity') +
+  scale_fill_manual(values = c("after_1991" = "#ccf2f3", "before_1991" = "#f7e9cc")) + 
+    geom_text(data = subset(butterfly_data3, type == "after_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = -0.3) +
+    geom_text(data = subset(butterfly_data3, type == "before_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = 1.2) +
     coord_flip(ylim = c(-1,1)) +
     scale_y_continuous(breaks = seq(-1,1,0.2)) +
-    theme_classic() +
-  labs(y = "value", x = "song characteristics", title = "Comparing Song Characteristics from before and after 1970")
+  theme_classic() +
+  labs(y = "value", x = "song characteristics", title = "Comparing Song Characteristics from before and after 1991")
     
 ```
 
