@@ -352,6 +352,4 @@ ggplot(billboard_valence_month, aes(x=month, y=mean_valence, fill=month)) +
 
 ## Discussion
 
-
-
 # Reference
