@@ -53,7 +53,61 @@ clean_featured <- function(x){
   }else{
     return(x)
   }}
-
+merge_big_genres <- function(x){
+  if(is.na(x)){
+    return(x)
+  }
+  if(str_detect(x, "pop") == TRUE){
+    return("'pop'")
+  }
+  else if(str_detect(x, "rap") == TRUE){
+    return("'rap'")
+  }
+  else if(str_detect(x, "rock") == TRUE){
+    return("'rock'")
+  }
+  else if(str_detect(x, "jazz") == TRUE){
+    return("'jazz'")
+  }
+  else if(str_detect(x, "metal") == TRUE){
+    return("'metal'")
+  }
+  else if(str_detect(x, "disco") == TRUE){
+    return("'disco'")
+  }
+  else if(str_detect(x, "hip hop") == TRUE){
+    return("'hip hop'")
+  }
+  else if(str_detect(x, "contemporary") == TRUE){
+    return("'contemporary'")
+  }
+  else if(str_detect(x, "blues") == TRUE){
+    return("'blues'")
+  }
+  else if(str_detect(x, "soul") == TRUE){
+    return("'soul'")
+  }
+  return(x)
+}
+transform_fusion <- function(x){
+  count = 0 
+  if(is.na(x)){
+    return(x)
+  }
+  if (str_detect(x, "fusion") == TRUE){
+    return ("'fusion'")
+  }
+  types = c("pop | pop", "rap | rap", "rock | rock", "jazz | jazz", "metal | metal", "disco | disco", "edm | edm", "soul | soul")
+  for(i in types){
+    if(str_detect(x, i)==TRUE){
+      count = count + 1
+      if (count == 2){
+        return("'fusion'")
+      }
+    }
+  }
+  return(x)
+}
 # normalise duration
 normalise_ms <- function(vector) {
   min_m = min(vector, na.rm = TRUE)
@@ -90,9 +144,15 @@ merged <- billboard %>%
   mutate_at(vars(week_id), mdy) %>%
   mutate(year = year(week_id),
          duration_mins = normalise_ms(spotify_track_duration_ms))
+
+# df with cleaned genres
+df_genres <- merged %>%
+  mutate(spotify_genre = lapply(spotify_genre, transform_fusion)) %>%
+  mutate(spotify_genre = lapply(spotify_genre, merge_big_genres)) %>%
+  mutate_at(vars(spotify_genre), as.character)
 ```
 
-
+# Emily Plots
 ## Butterfly plot FUNCTION 
 
 ```{r}
@@ -164,6 +224,7 @@ ggplot(butterfly_data3) +
     
 ```
 
+# Kahseng Plots
 ## Average absolute change of song rankings each month
 
 ```{r}
@@ -209,11 +270,167 @@ unique_songs_df <- unique_songs %>%
   mutate(proportion_drop_out = 100*count_drop_out/count_total)
 ```
 
-
 ```{r}
 ggplot(unique_songs_df) +
   geom_point(aes(x = month, y = abs_change, size = proportion_drop_out, color = count_total)) +
   scale_color_continuous(trans = "reverse") +
   theme_minimal() +
   labs(y = "Average absolute change of song rankings", x = "Month", title = "Average absolute change of song rankings each Month", color = "Total number of unique songs", size = "Songs that did not stay in the top 100 for > 3 weeks (%)")
+```
+
+# Xinyi Plots
+## "Average Songs a Billboard Artist On Chart Each Year"
+
+```{r}
+billboard_song <- merged %>%
+  separate(week_id, into = c("month", "day","year"), sep = "/") %>%
+  select(year, song_billboard) %>%
+  distinct() %>%
+  group_by(year) %>%
+  count() 
+```
+
+```{r}
+ggplot(billboard_artist, aes(x=year,y=n)) +
+  geom_col(fill = "lightblue") +
+  scale_y_continuous(breaks =seq(0,800, by=100)) +
+  scale_x_discrete(breaks =seq(1960,2020,by=10)) + 
+  labs(title = "How Many Different Songs Make the Hot 100 Each Year?",
+       y="Songs", x="Year") + 
+  theme_minimal()
+```
+
+```{r}
+billboard_chart = merged %>%
+  separate(week_id, into = c("month", "day","year"), sep = "/") %>%
+  filter(year!=2021) %>%
+  select(year, song_billboard, performer) %>%
+  distinct() 
+```
+
+```{r}
+song_per_artist = billboard_chart %>%
+  group_by(year) %>%
+  summarise(song_per_artist=n()/ n_distinct(performer), .groups='drop')
+```
+
+```{r}
+ggplot(song_per_artist, aes(x=year, y=song_per_artist)) +
+  geom_col() +
+  scale_y_continuous(breaks =seq(0,2.5, by=0.5)) +
+  scale_x_discrete(breaks =seq(1960,2020,by=10)) + 
+  labs(title = "Average Songs a Billboard Artist On Chart Each Year",
+       y="Songs (Mean)", x="Year") + 
+  theme_minimal()
+```
+
+## "Mean of Varience in 2010 to 2020, by Month"
+
+```{r} 
+billboard_energy = merged %>%
+  mutate(week_id = as_date(week_id, format="%m/%d/%Y"), 
+         month = month(week_id, label = TRUE, abbr = TRUE),
+         day = day(week_id),
+         year = year(week_id)) %>%
+  select(year, month, song_billboard, energy) %>%
+  distinct()
+```
+
+```{r}
+billboard_valence = merged %>%
+  mutate(week_id = as_date(week_id, format="%m/%d/%Y"), 
+         month = month(week_id, label = TRUE, abbr = TRUE),
+         day = day(week_id),
+         year = year(week_id)) %>%
+  select(year, month, song_billboard, valence) %>%
+  distinct()
+```
+
+```{r}
+energy_month = billboard_energy %>%
+  filter(year %in% c(2010:2015)) %>%
+  group_by(month,year) %>%
+  summarise(mean_energy= mean(energy, na.rm=TRUE),.groups='drop') 
+```  
+
+```{r}
+energy_valence = billboard_valence %>%
+  filter(year %in% c(2010:2020)) %>%
+  group_by(month,year) %>%
+  summarise(mean_valence= mean(valence, na.rm=TRUE),.groups='drop') 
+```  
+
+```{r}
+ggplot(energy_month, aes(x=month, y=mean_energy, color=month)) +
+  geom_boxplot() + 
+  geom_point(position=position_jitterdodge()) +
+  #scale_y_continuous(breaks= seq(0.4,0.8,by=0.05)) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(energy_valence, aes(x=month, y=mean_valence, fill=month)) +
+  geom_boxplot() + 
+ # geom_point(position=position_jitterdodge()) + 
+  labs(x="", y="Mean Varience", title ="Mean of Varience in 2010 to 2020, by Month") +
+  scale_y_continuous(breaks= seq(0.42,0.58,by=0.02)) +
+  scale_fill_brewer(type="qual", palette = "Set3") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+# Zhiyi Plots
+
+## top 10 genres across the dataframe, and their spread over the years
+```{r}
+top_genres = df_genres %>%
+  group_by(spotify_genre) %>%
+  summarize(n_songs = n()) %>%
+  mutate(rank = rank(desc(n_songs))) %>%
+  filter(rank <=10) %>%
+  pull(spotify_genre)
+
+top_overyears = df_genres %>%
+  filter(spotify_genre %in% top_genres) %>%
+  group_by(year, spotify_genre) %>%
+  summarize(n_songs = n()) %>%
+  arrange(year, desc(n_songs))
+  
+ten_plot = top_overyears %>%
+  ggplot(aes(x = year, y = n_songs, fill = spotify_genre)) +
+  geom_bar(stat = "identity")
+ten_plot
+```
+
+## artist df cleaning
+```{r}
+artist_df = billboard_clean %>%
+  select(week_id, song, performer) %>%
+  unique() %>%
+  mutate(year = year(mdy(week_id)))
+```
+
+## time series of top 10 artists of all time
+```{r}
+top_artist = artist_df %>%
+  group_by(performer) %>%
+  summarize(n_presence = n()) %>%
+  mutate(rank = rank(desc(n_presence))) %>%
+  filter(rank <= 10) %>%
+  pull(performer)
+
+artist_overyears = artist_df %>%
+  group_by(year, performer) %>%
+  summarize(n_presence = n()) %>%
+  mutate(rank = rank(desc(n_presence))) %>%
+  filter(performer %in% top_artist, rank <= 20) %>%
+  arrange(year, rank)
+  
+artist_plot = artist_overyears %>%
+  ggplot(aes(x = year, y = rank, group = performer, color = performer)) +
+  geom_point() +
+  geom_line() +
+  scale_y_reverse()
+
+artist_plot
 ```
