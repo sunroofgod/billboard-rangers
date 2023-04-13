@@ -144,10 +144,10 @@ merged <- billboard %>%
          duration_mins = normalise_ms(spotify_track_duration_ms))
 
 # df with cleaned genres
-df_genres <- merged %>%
-  mutate(spotify_genre = lapply(spotify_genre, transform_fusion)) %>%
-  mutate(spotify_genre = lapply(spotify_genre, merge_big_genres)) %>%
-  mutate_at(vars(spotify_genre), as.character)
+# df_genres <- merged %>%
+#   mutate(spotify_genre = lapply(spotify_genre, transform_fusion)) %>%
+#   mutate(spotify_genre = lapply(spotify_genre, merge_big_genres)) %>%
+#   mutate_at(vars(spotify_genre), as.character)
 ```
 
 # Zhiyi Plots
@@ -298,7 +298,10 @@ ggplot(unique_songs_df) +
   geom_point(aes(x = month, y = abs_change, size = proportion_drop_out, color = count_total)) +
   scale_color_continuous(trans = "reverse") +
   theme_minimal() +
-  labs(y = "Average absolute change of song rankings", x = "Month", title = "Average absolute change of song rankings each Month", color = "Total number of unique songs", size = "Songs that did not stay in the top 100 for > 3 weeks (%)")
+  labs(y = "Average absolute change of song rankings", x = "Month", title = "Average absolute change of song rankings each Month", color = "Total number \nof unique songs", size = "Songs (%) that \ndid not stay in the billboard \nfor > 3 weeks") +
+  theme(legend.position = "bottom") + 
+  scale_color_gradient(low = "#80b1d3", high = "#3a4143") +
+  scale_y_continuous(breaks= seq(15,30,by=2))
 ```
 
 # Xinyi Plots
