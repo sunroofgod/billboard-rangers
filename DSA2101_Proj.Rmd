@@ -146,10 +146,10 @@ merged <- billboard %>%
          duration_mins = normalise_ms(spotify_track_duration_ms))
 
 # df with cleaned genres
-# df_genres <- merged %>%
-#   mutate(spotify_genre = lapply(spotify_genre, transform_fusion)) %>%
-#   mutate(spotify_genre = lapply(spotify_genre, merge_big_genres)) %>%
-#   mutate_at(vars(spotify_genre), as.character)
+df_genres <- merged %>%
+  mutate(spotify_genre = lapply(spotify_genre, transform_fusion)) %>%
+  mutate(spotify_genre = lapply(spotify_genre, merge_big_genres)) %>%
+  mutate_at(vars(spotify_genre), as.character)
 ```
 
 # Emily Plots
