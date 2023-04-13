@@ -124,18 +124,15 @@ merged <- billboard %>%
   unnest(spotify_genre) %>%                 
   mutate(spotify_genre = str_trim(gsub("'", "", spotify_genre))) %>%
   
-  # add feature: duration_mins (normalised)
-  mutate_at(vars(week_id), mdy) %>%
-  mutate(year = year(week_id),
-         duration_mins = normalise_ms(spotify_track_duration_ms))
-
-# df with cleaned genres
-df_genres <- merged %>%
-  mutate(spotify_genre = lapply(spotify_genre, transform_fusion)) %>%
-  mutate(spotify_genre = lapply(spotify_genre, merge_big_genres)) %>%
-  mutate_at(vars(spotify_genre), as.character)
+  # separate main performer from featured performers
+  separate(performer_billboard, into = c("performer", "featured"), sep = "featuring|starring") %>%
+  mutate_at(vars(performer,featured), str_trim) %>%
+  
+  # trim away the brackets
+  mutate(performer = str_trim(as.character(lapply(performer, clean_performer))),
+         featured = str_trim(as.character(lapply(featured, clean_featured))) ) %>%
+  
 ```
-
 # Question 1: How have music trends changed over the years?  
 
 Music is a cultural force that reflects the changes in a society. In this question, we hope to understand how music trends have transformed over the years from 1958 to 2021 based on the top genres and pivotal moments in the music scene, such as the emergence of new genres and the use of technology.
@@ -179,69 +176,49 @@ top_overyears
 ## Plot 1b
 
 ```{r Butterfly plot FUNCTION}
-# takes in data with the newly merged variables and creates summarised data
-create_sum <- function(data) {
-  new <- data %>%
-    select(-c(spotify_genre)) %>%
-    distinct() %>%
-    summarise(danceability = mean(danceability, na.rm = TRUE),
-            energy = mean(energy, na.rm = TRUE),
-            speechiness = mean(speechiness, na.rm = TRUE),
-            acousticness = mean(acousticness, na.rm = TRUE),
-            instrumentalness = mean(instrumentalness, na.rm = TRUE),
-            liveness = mean(liveness, na.rm = TRUE),
-            valence = mean(valence, na.rm = TRUE),
-            explicit = sum(spotify_track_explicit, na.rm = TRUE)/n(),
-            loudness = mean(ifelse(!is.na(loudness), 10^(loudness/10), NA), na.rm = TRUE),
-            mode = mean(mode, na.rm = TRUE),
-            duration = mean(duration_mins, na.rm = TRUE)
-    )
-  return(new)
-}
+=======
+# Zhiyi Plots
 
-## takes in TWO summarised data and their names. Transposes data then row binds
-create_butterfly_data <- function(right, left, right_name, left_name) {
-  right_t <- right %>%
-    gather(key="features", value="value" ) %>%
-    mutate(type = right_name)
-  
-  left_t <- left %>%
-    gather(key="features", value="value" ) %>%
-    mutate(type = left_name,
-           value = - 1*value)
+## top 10 genres across the dataframe, and their spread over the years
+```{r}
+# extracting the top genres over the entire dataset
+top_genres = df_genres %>%
+  group_by(spotify_genre) %>%
+  summarize(n_songs = n()) %>%
+  mutate(rank = rank(desc(n_songs))) %>%
+  filter(rank <=10) %>%
+  pull(spotify_genre)
 
-  butterfly_data <- rbind(right_t, left_t)
-  
-  return(butterfly_data)
-}
+top_overyears = df_genres %>%
+  # spread of top genres over the years
+  filter(spotify_genre %in% top_genres) %>%
+  group_by(year, spotify_genre) %>%
+  summarize(n_songs = n()) %>%
+  arrange(year, desc(n_songs)) %>%
+  # creating density plot
+  ggplot(aes(x = year, fill = spotify_genre)) +
+  geom_density(alpha = 0.2) +
+  facet_wrap(~ spotify_genre) +
+  theme_classic()
+
+top_overyears
 ```
 
+# Emily Plots
+## Butterfly plot FUNCTION 
+
 ```{r}
-# split the merged dataset into two
-before_1991 <- merged %>%
-  filter(year <= 1991)
-  
-after_1991 <- merged %>%
-  filter(year > 1991)
+butterfly_data <- create_butterfly_data(create_sum(after_1991), create_sum(before_1991), "after_1991", "before_1991")
+
+=======
 
 butterfly_data <- create_butterfly_data(create_sum(after_1991), create_sum(before_1991), "after_1991", "before_1991")
 
-# pull features in order of descending values (based on after_1991)
-features_by_desc_values <- butterfly_data %>% filter(type == "after_1991") %>%
-  arrange(value) %>% pull(features)
-
-# plot the butterfly data
-ggplot(butterfly_data) + 
-    geom_bar(aes(x = factor(features, level = features_by_desc_values) , y = value, fill = type), stat = 'identity') +
-  scale_fill_manual(values = c("after_1991" = "#ccf2f3", "before_1991" = "#f7e9cc")) + 
-    geom_text(data = subset(butterfly_data, type == "after_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = -0.3) +
-    geom_text(data = subset(butterfly_data, type == "before_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = 1.2) +
-    coord_flip(ylim = c(-1,1)) +
-    scale_y_continuous(breaks = seq(-1,1,0.2), labels = paste0(as.character(c(rev(seq(0,1,0.2)),seq(0.2,1,0.2)), 'm'))) +
-  theme_minimal() +
   labs(y = "value", x = "song characteristics", title = "Comparing Song Characteristics from before and after 1991") +
   theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
-    
+=======
+  labs(y = "value", x = "song characteristics", title = "Comparing Song Characteristics from before and after 1991")
+
 ```
 
 ## Discussion
@@ -355,3 +332,7 @@ ggplot(billboard_valence_month, aes(x=month, y=mean_valence, fill=month)) +
 
 
 # Reference
+=======
+  theme_minimal() +
+  theme(legend.position = "none")
+```
