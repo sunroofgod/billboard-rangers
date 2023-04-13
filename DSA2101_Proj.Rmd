@@ -108,6 +108,7 @@ transform_fusion <- function(x){
   }
   return(x)
 }
+
 # normalise duration
 normalise_ms <- function(vector) {
   min_m = min(vector, na.rm = TRUE)
@@ -137,10 +138,7 @@ merged <- billboard %>%
   mutate(performer = str_trim(as.character(lapply(performer, clean_performer))),
          featured = str_trim(as.character(lapply(featured, clean_featured))) ) %>%
   
-  # add features: all_time_peak and duration_mins (normalised)
-  group_by(song_id) %>%
-  mutate(all_time_peak = min(peak_position, na.rm = TRUE)) %>%
-  ungroup() %>%
+  # add feature: duration_mins (normalised)
   mutate_at(vars(week_id), mdy) %>%
   mutate(year = year(week_id),
          duration_mins = normalise_ms(spotify_track_duration_ms))
@@ -152,11 +150,38 @@ df_genres <- merged %>%
   mutate_at(vars(spotify_genre), as.character)
 ```
 
+# Zhiyi Plots
+
+## top 10 genres across the dataframe, and their spread over the years
+```{r}
+# extracting the top genres over the entire dataset
+top_genres = df_genres %>%
+  group_by(spotify_genre) %>%
+  summarize(n_songs = n()) %>%
+  mutate(rank = rank(desc(n_songs))) %>%
+  filter(rank <=10) %>%
+  pull(spotify_genre)
+
+top_overyears = df_genres %>%
+  # spread of top genres over the years
+  filter(spotify_genre %in% top_genres) %>%
+  group_by(year, spotify_genre) %>%
+  summarize(n_songs = n()) %>%
+  arrange(year, desc(n_songs)) %>%
+  # creating density plot
+  ggplot(aes(x = year, fill = spotify_genre)) +
+  geom_density(alpha = 0.2) +
+  facet_wrap(~ spotify_genre) +
+  theme_classic()
+
+top_overyears
+```
+
 # Emily Plots
 ## Butterfly plot FUNCTION 
 
 ```{r}
-# takes in data with the newly merged variables and creates summary
+# takes in data with the newly merged variables and creates summarised data
 create_sum <- function(data) {
   new <- data %>%
     select(-c(spotify_genre)) %>%
@@ -180,14 +205,12 @@ create_sum <- function(data) {
 create_butterfly_data <- function(right, left, right_name, left_name) {
   right_t <- right %>%
     gather(key="features", value="value" ) %>%
-    mutate(type = right_name) %>%
-    arrange(desc(value))
+    mutate(type = right_name)
   
   left_t <- left %>%
     gather(key="features", value="value" ) %>%
     mutate(type = left_name,
-           value = - 1*value) %>%
-    arrange(desc(value))
+           value = - 1*value)
 
   butterfly_data <- rbind(right_t, left_t)
   
@@ -198,28 +221,28 @@ create_butterfly_data <- function(right, left, right_name, left_name) {
 ## Butterfly Plot for before and after 1991
 
 ```{r}
-before_1970 <- merged %>%
+# split the merged dataset into two
+before_1991 <- merged %>%
   filter(year <= 1991)
   
-after_1970 <- merged %>%
+after_1991 <- merged %>%
   filter(year > 1991)
-```
 
-## ggplot     
+butterfly_data <- create_butterfly_data(create_sum(after_1991), create_sum(before_1991), "after_1991", "before_1991")
 
-```{r}
-butterfly_data3 <- create_butterfly_data(create_sum(after_1970), create_sum(before_1970), "after_1991", "before_1991")
-
-features_by_desc_values <- butterfly_data3 %>% filter(type == "after_1991") %>%
+# pull features in order of descending values (based on after_1991)
+features_by_desc_values <- butterfly_data %>% filter(type == "after_1991") %>%
   arrange(value) %>% pull(features)
-ggplot(butterfly_data3) + 
+
+# plot the butterfly data
+ggplot(butterfly_data) + 
     geom_bar(aes(x = factor(features, level = features_by_desc_values) , y = value, fill = type), stat = 'identity') +
   scale_fill_manual(values = c("after_1991" = "#ccf2f3", "before_1991" = "#f7e9cc")) + 
-    geom_text(data = subset(butterfly_data3, type == "after_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = -0.3) +
-    geom_text(data = subset(butterfly_data3, type == "before_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = 1.2) +
+    geom_text(data = subset(butterfly_data, type == "after_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = -0.3) +
+    geom_text(data = subset(butterfly_data, type == "before_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = 1.2) +
     coord_flip(ylim = c(-1,1)) +
-    scale_y_continuous(breaks = seq(-1,1,0.2)) +
-  theme_classic() +
+    scale_y_continuous(breaks = seq(-1,1,0.2), labels = paste0(as.character(c(rev(seq(0,1,0.2)),seq(0.2,1,0.2)), 'm'))) +
+  theme_minimal() +
   labs(y = "value", x = "song characteristics", title = "Comparing Song Characteristics from before and after 1991")
     
 ```
@@ -332,31 +355,4 @@ ggplot(energy_valence, aes(x=month, y=mean_valence, fill=month)) +
   scale_fill_brewer(type="qual", palette = "Set3") +
   theme_minimal() +
   theme(legend.position = "none")
-```
-
-# Zhiyi Plots
-
-## top 10 genres across the dataframe, and their spread over the years
-```{r}
-# extracting the top genres over the entire dataset
-top_genres = df_genres %>%
-  group_by(spotify_genre) %>%
-  summarize(n_songs = n()) %>%
-  mutate(rank = rank(desc(n_songs))) %>%
-  filter(rank <=10) %>%
-  pull(spotify_genre)
-
-top_overyears = df_genres %>%
-  # spread of top genres over the years
-  filter(spotify_genre %in% top_genres) %>%
-  group_by(year, spotify_genre) %>%
-  summarize(n_songs = n()) %>%
-  arrange(year, desc(n_songs)) %>%
-  # creating density plot
-  ggplot(aes(x = year, fill = spotify_genre)) +
-  geom_density(alpha = 0.2) +
-  facet_wrap(~ spotify_genre) +
-  theme_classic()
-
-top_overyears
 ```
