@@ -279,52 +279,7 @@ ggplot(unique_songs_df) +
 ```
 
 # Xinyi Plots
-## "Average Songs a Billboard Artist On Chart Each Year"
-
-```{r}
-billboard_song <- merged %>%
-  separate(week_id, into = c("month", "day","year"), sep = "/") %>%
-  select(year, song_billboard) %>%
-  distinct() %>%
-  group_by(year) %>%
-  count() 
-```
-
-```{r}
-ggplot(billboard_artist, aes(x=year,y=n)) +
-  geom_col(fill = "lightblue") +
-  scale_y_continuous(breaks =seq(0,800, by=100)) +
-  scale_x_discrete(breaks =seq(1960,2020,by=10)) + 
-  labs(title = "How Many Different Songs Make the Hot 100 Each Year?",
-       y="Songs", x="Year") + 
-  theme_minimal()
-```
-
-```{r}
-billboard_chart = merged %>%
-  separate(week_id, into = c("month", "day","year"), sep = "/") %>%
-  filter(year!=2021) %>%
-  select(year, song_billboard, performer) %>%
-  distinct() 
-```
-
-```{r}
-song_per_artist = billboard_chart %>%
-  group_by(year) %>%
-  summarise(song_per_artist=n()/ n_distinct(performer), .groups='drop')
-```
-
-```{r}
-ggplot(song_per_artist, aes(x=year, y=song_per_artist)) +
-  geom_col() +
-  scale_y_continuous(breaks =seq(0,2.5, by=0.5)) +
-  scale_x_discrete(breaks =seq(1960,2020,by=10)) + 
-  labs(title = "Average Songs a Billboard Artist On Chart Each Year",
-       y="Songs (Mean)", x="Year") + 
-  theme_minimal()
-```
-
-## "Mean of Varience in 2010 to 2020, by Month"
+## "Tile of Plots"
 
 ```{r} 
 billboard_energy = merged %>%
