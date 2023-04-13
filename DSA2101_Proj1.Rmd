@@ -10,13 +10,16 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(include = TRUE, message = FALSE, warning = FALSE, 
-                      fig.align = "center",  out.width = "80%")
+knitr::opts_chunk$set(include = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      fig.align = "center",  
+                      out.width = "80%")
+
 library(tidyverse)
 library(readxl)
 library(stringr)
 library(lubridate)
-
 ```
 
 # Introduction
@@ -45,7 +48,9 @@ audio_clean <- audio_features %>%
 
 ```{r}
 #helper functions
-remove_casing <- function(x){return(substr(x, 2, nchar(x)-1))}
+remove_casing <- function(x){
+  return(substr(x, 2, nchar(x)-1))
+  }
 
 merge_big_genres <- function(x){
   if(is.na(x)){
@@ -83,7 +88,7 @@ merge_big_genres <- function(x){
   }
   return(x)
 }
-transform_fusion <- function(x){
+merge_into_fusion <- function(x){
   count = 0 
   if(is.na(x)){
     return(x)
@@ -102,9 +107,8 @@ transform_fusion <- function(x){
   }
   return(x)
 }
-
 # normalise duration
-normalise_ms <- function(vector) {
+normalise_ms <- function(vector){
   min_m = min(vector, na.rm = TRUE)
   max_m = max(vector, na.rm = TRUE)
   vector_norm = ifelse(!is.na(vector), (vector-min_m)/(max_m-min_m), NA)
@@ -130,8 +134,8 @@ merged <- billboard %>%
          duration_mins = normalise_ms(spotify_track_duration_ms))
 
 # df with cleaned genres
-df_genres <- merged %>%
-  mutate(spotify_genre = lapply(spotify_genre, transform_fusion)) %>%
+merged_genres <- merged %>%
+  mutate(spotify_genre = lapply(spotify_genre, merge_into_fusion)) %>%
   mutate(spotify_genre = lapply(spotify_genre, merge_big_genres)) %>%
   mutate_at(vars(spotify_genre), as.character)
 ```
@@ -150,68 +154,63 @@ While researching how music genres have changed over the years, we learnt that 1
 
 ```{r}
 # extracting the top genres over the entire dataset
-top_genres = df_genres %>%
+top_genres <- merged_genres %>%
   group_by(spotify_genre) %>%
   summarize(n_songs = n()) %>%
   mutate(rank = rank(desc(n_songs))) %>%
   filter(rank <=10) %>%
   pull(spotify_genre)
 
-top_overyears = df_genres %>%
-  
+top_overyears <- merged_genres %>%
   # spread of top genres over the years
   filter(spotify_genre %in% top_genres) %>%
   group_by(year, spotify_genre) %>%
   summarize(n_songs = n()) %>%
-  arrange(year, desc(n_songs)) %>%
+  arrange(year, desc(n_songs))
   
-  # creating density plot
-  ggplot(aes(x = year, fill = spotify_genre)) +
+# creating density plot
+ggplot(top_overyears, aes(x = year, fill = spotify_genre)) +
   geom_density(alpha = 0.2) +
   facet_wrap(~ spotify_genre) +
   theme_minimal(base_size = 9) +
-  labs(title = "Density of Top 10 Genres Over the Years", x = "Year", y = "Density") +
+  labs(title = "Density of Top 10 Genres Over the Years", 
+       x = "Year", 
+       y = "Density") +
   theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
-
-top_overyears
 ```
 
 ## Plot 1b
 
 ```{r Butterfly plot FUNCTION}
 # takes in data with the newly merged variables and creates summarised data
-create_sum <- function(data) {
+create_sum <- function(data){
   new <- data %>%
     select(-c(spotify_genre)) %>%
     distinct() %>%
     summarise(danceability = mean(danceability, na.rm = TRUE),
-            energy = mean(energy, na.rm = TRUE),
-            speechiness = mean(speechiness, na.rm = TRUE),
-            acousticness = mean(acousticness, na.rm = TRUE),
-            instrumentalness = mean(instrumentalness, na.rm = TRUE),
-            liveness = mean(liveness, na.rm = TRUE),
-            valence = mean(valence, na.rm = TRUE),
-            explicit = sum(spotify_track_explicit, na.rm = TRUE)/n(),
-            loudness = mean(ifelse(!is.na(loudness), 10^(loudness/10), NA), na.rm = TRUE),
-            mode = mean(mode, na.rm = TRUE),
-            duration = mean(duration_mins, na.rm = TRUE)
-    )
+              energy = mean(energy, na.rm = TRUE),
+              speechiness = mean(speechiness, na.rm = TRUE),
+              acousticness = mean(acousticness, na.rm = TRUE),
+              instrumentalness = mean(instrumentalness, na.rm = TRUE),
+              liveness = mean(liveness, na.rm = TRUE),         
+              valence = mean(valence, na.rm = TRUE),
+              explicit = sum(spotify_track_explicit, na.rm = TRUE)/n(),
+              loudness = mean(ifelse(!is.na(loudness), 10^(loudness/10), NA), na.rm = TRUE),        
+              mode = mean(mode, na.rm = TRUE),
+              duration = mean(duration_mins, na.rm = TRUE)
+              )
   return(new)
 }
-
 ## takes in TWO summarised data and their names. Transposes data then row binds
-create_butterfly_data <- function(right, left, right_name, left_name) {
+create_butterfly_data <- function(right, left, right_name, left_name){
   right_t <- right %>%
-    gather(key="features", value="value" ) %>%
+    gather(key="features", value="value") %>%
     mutate(type = right_name)
-  
   left_t <- left %>%
-    gather(key="features", value="value" ) %>%
+    gather(key="features", value="value") %>%
     mutate(type = left_name,
            value = - 1*value)
-
   butterfly_data <- rbind(right_t, left_t)
-  
   return(butterfly_data)
 }
 ```
@@ -232,16 +231,30 @@ features_by_desc_values <- butterfly_data %>% filter(type == "after_1991") %>%
 
 # plot the butterfly data
 ggplot(butterfly_data) + 
-    geom_bar(aes(x = factor(features, level = features_by_desc_values) , y = value, fill = type), stat = 'identity') +
+  geom_bar(aes(x = factor(features, level = features_by_desc_values), y = value, fill = type), 
+           stat = 'identity') +
   scale_fill_manual(values = c("after_1991" = "#ccf2f3", "before_1991" = "#f7e9cc")) + 
-    geom_text(data = subset(butterfly_data, type == "after_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = -0.3) +
-    geom_text(data = subset(butterfly_data, type == "before_1991") , aes(x = features, y = value, label = round(abs(value),2)), size = 3, vjust = .5, hjust = 1.2) +
-    coord_flip(ylim = c(-1,1)) +
-    scale_y_continuous(breaks = seq(-1,1,0.2), labels = paste0(as.character(c(rev(seq(0,1,0.2)),seq(0.2,1,0.2)), 'm'))) +
+  geom_text(data = subset(butterfly_data, type == "after_1991"), 
+            aes(x = features, 
+                y = value, 
+                label = round(abs(value),2)), 
+                size = 3, 
+                vjust = .5, 
+                hjust = -0.3) +
+  geom_text(data = subset(butterfly_data, type == "before_1991"), 
+            aes(x = features, y = value, label = round(abs(value),2)), 
+            size = 3, 
+            vjust = .5, 
+            hjust = 1.2) +
+  coord_flip(ylim = c(-1,1)) +
+  scale_y_continuous(breaks = seq(-1,1,0.2), 
+                     labels = paste0(as.character(c(rev(seq(0,1,0.2)),seq(0.2,1,0.2)), 'm'))) +
   theme_minimal() +
-  labs(y = "value", x = "song characteristics", title = "Comparing Song Characteristics from before and after 1991") +
-  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
-    
+  labs(y = "value", 
+       x = "song characteristics", 
+       title = "Comparing Song Characteristics from before and after 1991") +
+  theme(plot.title = element_text(hjust = 0.5), 
+        legend.position = "bottom")
 ```
 
 ## Discussion
@@ -265,7 +278,6 @@ unique_songs <- merged %>%
   select(c(year, week_id, song_id, week_position, peak_position)) %>%
   mutate(month = month(week_id, label = TRUE, abbr = TRUE), week = day(week_id)) %>%
   distinct() 
-
 ranking_change <- unique_songs %>%
   group_by(month) %>%
   group_by(song_id) %>%
@@ -305,25 +317,28 @@ ggplot(unique_songs_df) +
   scale_color_continuous(trans = "reverse") +
   theme_classic() +
   labs(y = "Average absolute change of song rankings", 
-       x = "Month", title = "Average absolute change of song rankings each Month", 
+       x = "Month", 
+       title = "Average absolute change of song rankings each Month", 
        color = "Songs (%) that \ndid not stay in the billboard \nfor > 3 weeks", 
        size = "Total number \nof unique songs") +
   theme(legend.position = "bottom",
         plot.title = element_text(hjust = 0.5)) + 
-  scale_color_gradient(low = "#80b1d3", high = "#3a4180") +
+  scale_color_gradient(low = "#80b1d3", 
+                       high = "#3a4180") +
   scale_y_continuous(breaks= seq(15,30,by=1)) +
-  geom_hline(yintercept = mean_abs_change, linetype = 2) +
+  geom_hline(yintercept = mean_abs_change, 
+             linetype = 2) +
   annotate('rect', 
            xmin = 0.3, 
            xmax = 12.7, 
-           ymin=mean_abs_change-sd_abs_change, 
-           ymax=mean_abs_change+sd_abs_change,
+           ymin = mean_abs_change - sd_abs_change, 
+           ymax = mean_abs_change + sd_abs_change,
            alpha=.2, 
            fill='grey') +
   annotate("text", 
            x = 12, 
-           y = mean_abs_change-0.6, 
-           label="Mean") +
+           y = mean_abs_change - 0.6, 
+           label = "Mean") +
   annotate(geom = "curve", x = 1, y = 27, xend = 1.4, yend = 24, 
            curvature = .3, arrow = arrow(length = unit(2, "mm"))) +
   annotate("text", x = 2.4, y = 27.5, label="Within Standard Deviation")
@@ -332,7 +347,7 @@ ggplot(unique_songs_df) +
 ## Plot 2b
 
 ```{r}
-billboard_valence_month = merged %>%
+billboard_valence_month <- merged %>%
   mutate(month = month(week_id, label = TRUE, abbr = TRUE)) %>%   
   select(year, month, song_billboard, valence) %>%
   distinct() %>%  filter(year %in% c(2011:2020)) %>%
@@ -343,8 +358,10 @@ billboard_valence_month = merged %>%
 ```{r}
 ggplot(billboard_valence_month, aes(x=month, y=mean_valence, fill=month)) +
   geom_boxplot() +   
-  labs(x="", y="Yearly Mean Valence", title ="Yearly Mean Valence of the Songs in 2011 to 2020, by Month") +
-  scale_y_continuous(breaks= seq(0.42,0.58,by=0.02)) +  
+  labs(x="", 
+       y="Yearly Mean Valence",
+       title ="Yearly Mean Valence of the Songs in 2011 to 2020, by Month") +
+  scale_y_continuous(breaks = seq(0.42,0.58,by=0.02)) +  
   scale_fill_brewer(type="qual", palette = "Set3") +
   theme_classic() +  
   theme(legend.position = "none", plot.title = element_text(hjust=0.5))
