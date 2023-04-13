@@ -383,6 +383,7 @@ ggplot(energy_valence, aes(x=month, y=mean_valence, fill=month)) +
 
 ## top 10 genres across the dataframe, and their spread over the years
 ```{r}
+# extracting the top genres over the entire dataset
 top_genres = df_genres %>%
   group_by(spotify_genre) %>%
   summarize(n_songs = n()) %>%
@@ -391,46 +392,16 @@ top_genres = df_genres %>%
   pull(spotify_genre)
 
 top_overyears = df_genres %>%
+  # spread of top genres over the years
   filter(spotify_genre %in% top_genres) %>%
   group_by(year, spotify_genre) %>%
   summarize(n_songs = n()) %>%
-  arrange(year, desc(n_songs))
-  
-ten_plot = top_overyears %>%
-  ggplot(aes(x = year, y = n_songs, fill = spotify_genre)) +
-  geom_bar(stat = "identity")
-ten_plot
-```
+  arrange(year, desc(n_songs)) %>%
+  # creating density plot
+  ggplot(aes(x = year, fill = spotify_genre)) +
+  geom_density(alpha = 0.2) +
+  facet_wrap(~ spotify_genre) +
+  theme_classic()
 
-## artist df cleaning
-```{r}
-artist_df = billboard_clean %>%
-  select(week_id, song, performer) %>%
-  unique() %>%
-  mutate(year = year(mdy(week_id)))
-```
-
-## time series of top 10 artists of all time
-```{r}
-top_artist = artist_df %>%
-  group_by(performer) %>%
-  summarize(n_presence = n()) %>%
-  mutate(rank = rank(desc(n_presence))) %>%
-  filter(rank <= 10) %>%
-  pull(performer)
-
-artist_overyears = artist_df %>%
-  group_by(year, performer) %>%
-  summarize(n_presence = n()) %>%
-  mutate(rank = rank(desc(n_presence))) %>%
-  filter(performer %in% top_artist, rank <= 20) %>%
-  arrange(year, rank)
-  
-artist_plot = artist_overyears %>%
-  ggplot(aes(x = year, y = rank, group = performer, color = performer)) +
-  geom_point() +
-  geom_line() +
-  scale_y_reverse()
-
-artist_plot
+top_overyears
 ```
