@@ -1,6 +1,6 @@
 ---
 title: "DSA2101 Project"
-author: "Ng Siew Zhang, Lee Wen Yang, Lian Kah Seng, Goh Xin Yi, Yong Zhi Yi"
+author: "Billboard Rangers: Ng Siew Zhang (A0245929N), Lee Wen Yang (A0233784X), Lian Kah Seng (A0233238J), Goh Xin Yi (A0240913M), Yong Zhi Yi (A0243329E)"
 output: 
   html_document:
     toc: TRUE
@@ -372,7 +372,7 @@ ggplot(unique_songs_df) +
     y = "Average absolute change of song rankings", 
     x = "Month", 
     title = "Average absolute change of song rankings each Month", 
-    color = "Songs (%) that \ndid not stay in the billboard \nfor > 3 weeks", 
+    color = "Proportions of songs that \nstayed in the billboard \nfor < 4 weeks", 
     size = "Total number \nof unique songs"
     ) +
   theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5)) + 
