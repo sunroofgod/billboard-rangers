@@ -8,7 +8,7 @@
 - This project is part of our graded coursework in the National University of Singapore module DSA2101: Essential Data Analytics Tools: Data Visualisation.
 
 ### Setup
-```git clone https://github.com/sunroofgod/billboard_rangers.git```
+```git clone https://github.com/sunroofgod/billboard-rangers.git```
 
 You may then view the project content details either in the [R Markdown file](DSA2101_Project.Rmd), [R Script](DSA2101_Project.R), [HTML](DSA2101_Project.html) or [PDF](DSA2101_Project_Report.pdf). 
 
