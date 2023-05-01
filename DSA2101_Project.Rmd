@@ -1,6 +1,6 @@
 ---
 title: "DSA2101 Project"
-author: "Billboard Rangers: Ng Siew Zhang (A0245929N), Lee Wen Yang (A0233784X), Lian Kah Seng (A0233238J), Goh Xin Yi (A0240913M), Yong Zhi Yi (A0243329E)"
+author: "Billboard Rangers: Lian Kah Seng, Ng Siew Zhang, Lee Wen Yang, Goh Xin Yi, Yong Zhi Yi"
 output: 
   html_document:
     toc: TRUE
